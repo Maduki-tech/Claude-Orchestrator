@@ -1,0 +1,1 @@
+{ "name": "orchestrator-worktrees", "version": "0.2.0", "description": "Band and pane showing every orchestrator task worktree and its state", "types": "./types/index.d.ts" }
