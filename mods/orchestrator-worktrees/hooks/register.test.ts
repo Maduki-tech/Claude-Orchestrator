@@ -7,7 +7,7 @@ const OUT = `feature/blog-empty
   agent:    blog-empty
   goal:     Feature: show empty state
   changed:  a.txt b.txt
-  last:     2026-10-11T08:36:11+02:00 Plan ready: see pane
+  last:     2026-10-11T08:36:11+02:00 Question: keep the old route?
 fix/login
   worktree: /r-wt2
   agent:    none running
@@ -26,9 +26,16 @@ test('parse reads every task block', () => {
 })
 
 test('stateOf maps the last report to a state', () => {
-  const [plan, none] = parse(OUT)
-  expect(stateOf(plan!).label).toBe('plan ready')
+  const [question, none] = parse(OUT)
+  expect(stateOf(question!).label).toBe('question')
   expect(stateOf(none!).label).toBe('working')
+  const at = (message: string) => stateOf({ ...none!, last: `2026-10-11T08:36:11+02:00 ${message}` }).label
+  expect(at('Ready for review: 2 files')).toBe('review')
+  expect(at('Done: merged https://github.com/o/r/pull/7')).toBe('merged')
+  expect(at('Done: https://github.com/o/r/pull/7')).toBe('merged')
+  expect(at('Done: unmerged feature/x')).toBe('to merge')
+  expect(at('Done: CI failed on lint, stopped')).toBe('stopped')
+  expect(at('Working on the review of done items')).toBe('working')
 })
 
 test('/worktrees opens the pane', async ($, on) => {
@@ -56,7 +63,7 @@ test('band summarizes the tasks and its button opens the pane', async ($, on) =>
   for (const surface of ['terminal', 'desktop'] as const) {
     const band = await $.ui.mount({ plugin: 'orchestrator-worktrees', surface, component: 'AbovePrompt', props: BAND })
     expect(await band.find({ text: /2 worktrees/ })).toBeDefined()
-    expect(await band.find({ text: /1 plan ready/ })).toBeDefined()
+    expect(await band.find({ text: /1 question/ })).toBeDefined()
     await band.press({ key: 'open' })
   }
   expect(opened).toEqual(['worktrees', 'worktrees'])
@@ -67,7 +74,7 @@ test('Jump focuses a running agent, else opens and focuses the worktree workspac
   const ok = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
   on('process.run', (_$, e) => {
     const argv = e.argv.join(' ')
-    if (argv.endsWith('list-tasks.sh')) return ok(OUT)
+    if (argv.includes('list-tasks.sh')) return ok(OUT)
     ran.push(argv)
     if (argv.startsWith('git ')) return ok('/repo/.git\n')
     if (argv.startsWith('herdr worktree open')) return ok('{"result":{"workspace":{"workspace_id":"w7"}}}')

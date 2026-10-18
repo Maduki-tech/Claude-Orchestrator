@@ -25,13 +25,14 @@ export const parse = (out: string): Task[] =>
     }]
   })
 
+// Worker reports start with Question:, Ready for review:, or Done: (see the
+// orchestrator-worker skill). A Done that names no merge is a stop.
 const STATES: [RegExp, string, Color][] = [
-  [/plan ready/i, 'plan ready', 'warning'],
-  [/ready for review/i, 'review', 'warning'],
-  [/blocked|decision/i, 'blocked', 'error'],
-  [/merged/i, 'merged', 'merged'],
-  [/committed/i, 'committed', 'success'],
-  [/done/i, 'done', 'success'],
+  [/^question/i, 'question', 'error'],
+  [/^ready for review/i, 'review', 'warning'],
+  [/^done\b.*\bunmerged\b/i, 'to merge', 'warning'],
+  [/^done\b.*(\bmerged\b|\/pull\/\d)/i, 'merged', 'merged'],
+  [/^done/i, 'stopped', 'error'],
 ]
 
 export const stateOf = (task: Task): { label: string; color: Color } => {

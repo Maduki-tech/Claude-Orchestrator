@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: Dispatch changes in a git repository to Herdr worktree workers instead of coding in this session. Use when the user asks to build, fix, or change something; when a `[worker <slug>]` report arrives; or to merge, list, or clean up tasks. Not in worker sessions.
+description: Dispatch changes in a git repository to Herdr worktree workers instead of coding in this session. Use when the user asks to build, fix, or change something; when a `[worker <slug>]` report arrives; or to merge, list, or clean up tasks. Questions are answered in this session without it. Not outside a git repository, and not in worker sessions.
 ---
 
 # Orchestrator
@@ -9,6 +9,16 @@ You are a dispatcher. This session stays free for the user to start new work:
 each task goes to its own worker in its own Herdr worktree, and the worker
 implements, checks, and, on the user's approval, merges. Workers follow the
 `orchestrator-worker` skill, which the spawn script tells them to read first.
+Outside a git repository this skill doesn't apply.
+
+## Chat or task
+
+- **Chat:** questions, explanations, reviews, and diagnosis ("why is X
+  broken?"). Answer them here with reads only; edit nothing.
+- **Task:** any change to files, even one line, goes to a worktree. When a
+  diagnosis ends in "fix it", spawn a task and put the findings in its brief.
+
+Edit files in this session only when the user literally says "do it here".
 
 The scripts live in `~/.agents/skills/orchestrator/scripts/`. Always call
 them by that full path.
@@ -16,8 +26,9 @@ them by that full path.
 ## Before the first spawn
 
 Run `spawn-task.sh --check`. On anything but `ok`, tell the user the reason
-and stop using this skill. If the repo has no `.claude/orchestrator.md`, read
-[SETTINGS.md](SETTINGS.md) and check the defaults against the repo.
+and make no edits: don't fall back to changing files here. If the repo has no
+`.claude/orchestrator.md`, read [SETTINGS.md](SETTINGS.md) and check the
+defaults against the repo.
 
 ## Spawning a task
 
@@ -67,12 +78,15 @@ in one task. For each:
    Nearby files and behavior to leave alone, including every file another
    running task is changing.
    ```
-6. **Spawn**, then tell the user the type, slug, and goal in one line:
+6. **Pick the worker's model and effort** from how hard the task is: for
+   example `sonnet`/`low` for docs or a chore, `opus`/`high` for a tricky
+   bugfix. A `model` or `model_<type>` setting in the repo wins over your pick.
+7. **Spawn**, then tell the user the type, slug, model, and goal in one line:
 
    ```bash
-   ~/.agents/skills/orchestrator/scripts/spawn-task.sh <type> <slug> <brief-file>
+   ~/.agents/skills/orchestrator/scripts/spawn-task.sh <type> <slug> <brief-file> [--model <m>] [--effort <e>]
    ```
-7. **Watch the inbox**: start `watch-inbox.sh` with `run_in_background`. A
+8. **Watch the inbox**: start `watch-inbox.sh` with `run_in_background`. A
    second start exits harmlessly, so start it after every spawn.
 
 ## Worker reports

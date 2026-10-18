@@ -15,13 +15,14 @@ inbox="$(inbox_dir)/inbox"
 found=0
 while IFS=$'\t' read -r path branch; do
     [ "$path" != "$root" ] || continue
+    # Only worktrees spawn-task.sh made: they carry a brief.
+    brief="$(brief_file "$path")"
+    [ -f "$brief" ] || continue
     found=1
     base="$(base_for_branch "$branch")"
     ref="$(base_ref "$base" || echo "$base")"
     agent="$(awk -F'\t' -v p="$path" '$1 == p { print $2; exit }' <<<"$agents")"
-    brief="$(brief_file "$path")"
-    goal="(no brief)"
-    [ -f "$brief" ] && goal="$(grep -m1 . "$brief" | sed 's/^#* *//')"
+    goal="$(grep -m1 . "$brief" | sed 's/^#* *//')"
     changed="$({
         git -C "$path" diff --name-only "$ref...HEAD" 2>/dev/null
         git -C "$path" status --porcelain | cut -c4-

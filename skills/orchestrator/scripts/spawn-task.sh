@@ -2,7 +2,7 @@
 # Create a Herdr worktree for one task, copy local env files into it, start a
 # Claude worker there, and point it at the brief and the worker rules.
 # Usage:
-#   spawn-task.sh <type> <slug> <brief-file>
+#   spawn-task.sh <type> <slug> <brief-file> [--model <m>] [--effort <e>]
 #   spawn-task.sh --check    only check that the orchestrator can run here
 #   type: feature | bugfix | hotfix | chore | refactor | docs
 #   slug: kebab-case, lowercase, e.g. blog-empty-state
@@ -16,20 +16,33 @@ source "$script_dir/lib.sh"
 [ "${ORCHESTRATOR_WORKER:-}" != 1 ] || die "this session is a worker; workers don't spawn tasks"
 [ "${HERDR_ENV:-}" = 1 ] || die "not running inside a Herdr pane"
 command -v jq >/dev/null || die "jq is required"
+command -v herdr >/dev/null || die "herdr is required"
 [ -f "$WORKER_SKILL" ] || die "missing worker rules: $WORKER_SKILL"
 root="$(repo_root)"
 git -C "$root" rev-parse --verify --quiet HEAD >/dev/null ||
     die "the repo has no commits yet; worktrees need at least one"
+# Workers push and merge through gh whenever the repo has a remote.
+! git -C "$root" remote get-url origin >/dev/null 2>&1 || command -v gh >/dev/null ||
+    die "gh is required to open and merge pull requests"
 
 if [ "${1:-}" = --check ]; then
     echo ok
     exit 0
 fi
 
-usage="usage: spawn-task.sh <${TYPES// /|}> <slug> <brief-file>"
+usage="usage: spawn-task.sh <${TYPES// /|}> <slug> <brief-file> [--model <m>] [--effort <e>]"
 type="${1:?$usage}"
 slug="${2:?$usage}"
 brief_src="${3:?$usage}"
+shift 3
+pick_model="" effort=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --model) pick_model="${2:?$usage}"; shift 2 ;;
+        --effort) effort="${2:?$usage}"; shift 2 ;;
+        *) die "unknown option '$1'. $usage" ;;
+    esac
+done
 
 [ -s "$brief_src" ] || die "brief file is missing or empty: $brief_src"
 [[ " $TYPES " == *" $type "* ]] || die "unknown type '$type'. $usage"
@@ -67,10 +80,13 @@ env_files="$(sed -n 's/^copy-env: copied //p' <<<"$env_report" | paste -sd ' ')"
 # leaves the user's approval gate to the "Ship" rule in the worker skill.
 # ORCHESTRATOR_WORKER tells the orchestrator skill, which every session can
 # see, that this session is a worker and must not spawn tasks of its own.
+# A model in the repo's settings wins over the orchestrator's pick.
 model="$(model_for "$type")"
+model="${model:-$pick_model}"
 claude_args=(--dangerously-skip-permissions
     --settings '{"env":{"ORCHESTRATOR_WORKER":"1"}}')
 [ -z "$model" ] || claude_args+=(--model "$model")
+[ -z "$effort" ] || claude_args+=(--effort "$effort")
 herdr agent start "$agent_name" --kind claude --pane "$worker_pane" \
     --timeout 60000 -- "${claude_args[@]}" >/dev/null
 
@@ -111,6 +127,7 @@ herdr agent prompt "$agent_name" "$prompt" >/dev/null
 jq -n --arg type "$type" --arg branch "$branch" --arg base "$base_ref" \
     --arg path "$worktree_path" --arg workspace "$workspace_id" \
     --arg pane "$worker_pane" --arg agent "$agent_name" \
-    --arg model "${model:-default}" \
+    --arg model "${model:-default}" --arg effort "${effort:-default}" \
     '{type: $type, branch: $branch, base: $base, worktree: $path,
-      workspace: $workspace, pane: $pane, agent: $agent, model: $model}'
+      workspace: $workspace, pane: $pane, agent: $agent, model: $model,
+      effort: $effort}'

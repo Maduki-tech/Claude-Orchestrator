@@ -9,7 +9,8 @@ Herdr git worktree, so your main session stays free.
 
 ## Requirements
 
-`git`, `jq`, `herdr`, and Claude Code.
+`git`, `jq`, `herdr`, `gh` (for repos with a remote), `inotifywait` (from
+inotify-tools; optional, the inbox watcher polls without it), and Claude Code.
 
 ## Install
 

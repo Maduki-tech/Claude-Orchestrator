@@ -31,7 +31,7 @@ services, ports, or steps that need the orchestrator's sign-off.
 | `setup`             | none                                                       |
 | `env_files`         | every git-ignored `.env*` file at the repo root            |
 | `prefix_<type>`     | `feature`, `fix` (bugfix), else the type name              |
-| `model`, `model_<type>` | none: Claude's own default. `model_<type>` wins over `model` |
+| `model`, `model_<type>` | none: the orchestrator's pick per task, else Claude's default. `model_<type>` wins over `model`, and both win over the pick |
 
 ## Checking a new repo
 

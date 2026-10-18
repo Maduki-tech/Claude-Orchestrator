@@ -25,7 +25,8 @@ CLAUDE.md requires. Run long suites under `timeout`.
 ## Reports
 
 The user hears from you only through the report command, at exactly these
-points, each in a few lines:
+points, each in a few lines that start with the point's name (`Question:`,
+`Ready for review:`, `Done:`), since the task list reads that word:
 
 1. **Question**: a decision the brief doesn't settle, or anything that blocks
    you. Then wait for the answer.
@@ -53,5 +54,5 @@ On "Ship":
    from your branch into it the same way.
 6. Report Done with the PR URLs.
 
-When the repo has no forge remote, push nothing: report Done with the branch
-name after step 2, and the orchestrator merges.
+When the repo has no forge remote, push nothing: after step 2 report
+`Done: unmerged <branch>`, and the orchestrator merges.
