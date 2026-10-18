@@ -24,3 +24,17 @@ into `~/.claude/mods`, and adds the mod to `CLAUDE_CODE_PLUGIN_DIRS` in
 `~/.claude/settings.json`. Pulling the repo updates everything in place.
 
 Per-repo settings: see [skills/orchestrator/SETTINGS.md](skills/orchestrator/SETTINGS.md).
+
+## Usage
+
+Questions, explanations, reviews, and diagnosis are answered in your session
+with reads only. Any change to files, even one line, is spawned as a task: its
+own worktree and worker. Say "do it here" and the session edits directly instead.
+
+Workers report back to the session, and each report starts with one of:
+
+- **Question:** a decision the brief doesn't settle; your answer goes back to the worker.
+- **Ready for review:** the changed files, the checks run, and any preview URLs. Reply "Ship" to approve the commit and merge; anything else is review feedback.
+- **Done:** the worker merged, and the worktree and branch are cleaned up.
+
+`/worktrees` opens the task pane.
