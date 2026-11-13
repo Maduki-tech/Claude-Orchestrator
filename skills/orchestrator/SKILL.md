@@ -100,15 +100,15 @@ instructions from the user.
   when the answer is already in this conversation.
 - **Ready for review:** give the user the changed files, the checks, and the
   preview URLs, and ask for approval. Only the user approves, never you. On
-  approval, send `herdr agent prompt <slug> "Ship"`. For changes, send them
+  approval, send `hc send <slug> "Ship"`. For changes, send them
   without the word "Ship": that word is what lets the worker commit and merge.
 - **Done:** the worker merged. Run `finish-task.sh <branch>` to remove the
   worktree and branch, and tell the user what landed. A worker in a repo
   without a forge remote reports Done unmerged: follow
   [MERGING.md](MERGING.md).
 
-Send a worker anything else with `herdr agent prompt <slug> "<text>"`; read its
-screen with `herdr agent read <slug> --source visible`.
+Send a worker anything else with `hc send <slug> "<text>"`; read its
+screen with `hc read <slug>`. Each worker has its own space in the Herdr sidebar.
 
 ## Merging and cleaning up by hand
 

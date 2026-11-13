@@ -4,7 +4,7 @@ import { parse, stateOf } from './register'
 
 const OUT = `feature/blog-empty
   worktree: /r-wt
-  agent:    blog-empty
+  agent:    t7
   goal:     Feature: show empty state
   changed:  a.txt b.txt
   last:     2026-10-11T08:36:11+02:00 Question: keep the old route?
@@ -21,7 +21,7 @@ const BAND = { hasSurvey: false, isWorking: false, maxRows: 3, bodyColumns: 80, 
 test('parse reads every task block', () => {
   const tasks = parse(OUT)
   expect(tasks.map(t => t.branch)).toEqual(['feature/blog-empty', 'fix/login'])
-  expect(tasks[0]).toMatchObject({ agent: 'blog-empty', changed: 'a.txt b.txt', goal: 'Feature: show empty state' })
+  expect(tasks[0]).toMatchObject({ agent: 't7', changed: 'a.txt b.txt', goal: 'Feature: show empty state' })
   expect(parse('list-tasks: no task worktrees\n')).toEqual([])
 })
 
@@ -69,15 +69,13 @@ test('band summarizes the tasks and its button opens the pane', async ($, on) =>
   expect(opened).toEqual(['worktrees', 'worktrees'])
 })
 
-test('Jump focuses a running agent, else opens and focuses the worktree workspace', async ($, on) => {
+test('Jump focuses a running agent, else opens a space in the worktree', async ($, on) => {
   const ran: string[] = []
   const ok = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
   on('process.run', (_$, e) => {
     const argv = e.argv.join(' ')
     if (argv.includes('list-tasks.sh')) return ok(OUT)
     ran.push(argv)
-    if (argv.startsWith('git ')) return ok('/repo/.git\n')
-    if (argv.startsWith('herdr worktree open')) return ok('{"result":{"workspace":{"workspace_id":"w7"}}}')
     return ok('')
   })
   on('session.start', (_$, e) => e)
@@ -89,9 +87,7 @@ test('Jump focuses a running agent, else opens and focuses the worktree workspac
   await pane.press({ key: 'jump-feature/blog-empty' })
   await pane.press({ key: 'jump-fix/login' })
   expect(ran).toEqual([
-    'herdr agent focus blog-empty',
-    'git -C /r-wt2 rev-parse --path-format=absolute --git-common-dir',
-    'herdr worktree open --cwd /repo --path /r-wt2',
-    'herdr workspace focus w7',
+    'herdr-app do agent.focus --terminal t7',
+    'herdr-app do space.new --folder /r-wt2 --name fix/login',
   ])
 })

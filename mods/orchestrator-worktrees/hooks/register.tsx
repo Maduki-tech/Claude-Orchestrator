@@ -42,8 +42,8 @@ export const stateOf = (task: Task): { label: string; color: Color } => {
   return hit ? { label: hit[1], color: hit[2] } : { label: 'working', color: 'subtle' }
 }
 
-// A running worker: focus its agent pane. Otherwise open (or reuse) the
-// worktree's Herdr workspace, which Herdr opens from the main checkout.
+// A running worker: focus its terminal (task.agent is its hc address).
+// Otherwise open a new Herdr space with a shell in the worktree.
 const jump = async ($: EngineInterface, task: Task) => {
   const run = async (argv: string[]) => {
     const { exitCode, stdout, stderr } = await $.process.run(argv)
@@ -52,13 +52,10 @@ const jump = async ($: EngineInterface, task: Task) => {
   }
   try {
     if (task.agent !== 'none running') {
-      await run(['herdr', 'agent', 'focus', task.agent])
+      await run(['herdr-app', 'do', 'agent.focus', '--terminal', task.agent])
       return
     }
-    const common = await run(['git', '-C', task.worktree, 'rev-parse', '--path-format=absolute', '--git-common-dir'])
-    const root = common.trim().replace(/\/\.git$/, '')
-    const opened = JSON.parse(await run(['herdr', 'worktree', 'open', '--cwd', root, '--path', task.worktree]))
-    await run(['herdr', 'workspace', 'focus', opened.result.workspace.workspace_id])
+    await run(['herdr-app', 'do', 'space.new', '--folder', task.worktree, '--name', task.branch])
   } catch (error) {
     $.ui.toast(`Jump to ${task.branch} failed: ${(error as Error).message}`)
   }

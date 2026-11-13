@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Finish a task: optionally merge its branch, then remove its worktree,
-# its Herdr workspace, and the local branch.
+# its worker terminal (and with it the Herdr space), and the local branch.
 # Usage:
 #   finish-task.sh <branch> [--merge]   one task
 #   finish-task.sh --all-merged         every worktree whose work is merged
@@ -77,7 +77,7 @@ merge_into() {
 }
 
 finish() {
-    local branch="$1" do_merge="$2" path how workspace target
+    local branch="$1" do_merge="$2" path how worker target
     git_main rev-parse --verify --quiet "refs/heads/$branch" >/dev/null ||
         die "no local branch $branch"
     path="$(worktree_path_for "$branch")"
@@ -102,14 +102,10 @@ finish() {
     [ -n "$how" ] || die "$branch is not merged; use --merge or merge the PR first"
 
     if [ -n "$path" ]; then
-        workspace="$(herdr worktree list --cwd "$repo_root" 2>/dev/null | jq -r \
-            --arg p "$path" '.result.worktrees[] | select(.path == $p)
-            | .open_workspace_id // empty')"
-        if [ -n "$workspace" ]; then
-            herdr worktree remove --workspace "$workspace" >/dev/null
-        else
-            git_main worktree remove "$path"
-        fi
+        # Ending the worker's terminal closes its space in the sidebar.
+        worker="$(live_terminals | awk -F'\t' -v p="$path" '$1 == p { print $2 }')"
+        for t in $worker; do hc kill "$t" >/dev/null || true; done
+        git_main worktree remove "$path"
     fi
 
     # -D is safe here: merged_how proved the work landed. Squash-merged PRs
@@ -123,7 +119,7 @@ case "${1:-}" in
         sync_bases
         # A new branch with no commits counts as merged, so skip any worktree
         # that still has a live agent in it.
-        busy="$(herdr agent list 2>/dev/null | jq -r '.result.agents[].cwd')"
+        busy="$(live_terminals | cut -f1)"
         found=0
         while read -r branch; do
             [ -n "$(merged_how "$branch")" ] || continue

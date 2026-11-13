@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Append a worker's status report to the orchestrator inbox and show a Herdr
+# Append a worker's status report to the orchestrator inbox and show a desktop
 # notification. The orchestrator's background watch-inbox.sh picks it up, so
 # nothing is typed into the orchestrator pane while the user may be typing.
 # Usage: report.sh <slug> <message>
@@ -19,6 +19,5 @@ line="$(jq -nc --arg time "$(date -Iseconds)" --arg slug "$slug" \
     printf '%s\n' "$line" >>"$dir/inbox"
 } 9>"$dir/inbox.lock"
 
-herdr notification show "worker $slug" --body "$message" --sound request \
-    >/dev/null 2>&1 || true
+notify-send "worker $slug" "$message" >/dev/null 2>&1 || true
 echo "report: queued for the orchestrator"

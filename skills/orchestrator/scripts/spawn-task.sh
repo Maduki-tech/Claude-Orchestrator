@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Create a Herdr worktree for one task, copy local env files into it, start a
-# Claude worker there, and point it at the brief and the worker rules.
+# Create a git worktree for one task, copy local env files into it, and start
+# a Claude worker there in its own Herdr space, pointed at the brief and the
+# worker rules.
 # Usage:
 #   spawn-task.sh <type> <slug> <brief-file> [--model <m>] [--effort <e>]
 #   spawn-task.sh --check    only check that the orchestrator can run here
@@ -14,9 +15,9 @@ WORKER_SKILL="$script_dir/../../orchestrator-worker/SKILL.md"
 source "$script_dir/lib.sh"
 
 [ "${ORCHESTRATOR_WORKER:-}" != 1 ] || die "this session is a worker; workers don't spawn tasks"
-[ "${HERDR_ENV:-}" = 1 ] || die "not running inside a Herdr pane"
 command -v jq >/dev/null || die "jq is required"
-command -v herdr >/dev/null || die "herdr is required"
+command -v hc >/dev/null || die "hc (the Herdr core) is required"
+hc ls --json >/dev/null 2>&1 || die "the Herdr core isn't running; start Herdr"
 [ -f "$WORKER_SKILL" ] || die "missing worker rules: $WORKER_SKILL"
 root="$(repo_root)"
 git -C "$root" rev-parse --verify --quiet HEAD >/dev/null ||
@@ -56,17 +57,16 @@ branch="$(prefix_for "$type")/$slug"
 git -C "$root" rev-parse --verify --quiet "refs/heads/$branch" >/dev/null &&
     die "branch $branch already exists"
 
-# Herdr agent names: [a-z][a-z0-9_-]{0,31}, unique among live agents.
+# Terminal names: 1-32 of a-z 0-9 - _, unique among live terminals.
 agent_name="${slug:0:32}"
 agent_name="${agent_name%-}"
-herdr agent get "$agent_name" >/dev/null 2>&1 &&
-    die "a live agent is already named $agent_name"
+hc ls --json | jq -e --arg n "$agent_name" 'any(.terminals[]; .name == $n)' >/dev/null &&
+    die "a live terminal is already named $agent_name"
 
-created="$(herdr worktree create --cwd "$root" --branch "$branch" \
-    --base "$base_ref" --label "$slug" --no-focus)"
-worktree_path="$(jq -r '.result.worktree.path' <<<"$created")"
-worker_pane="$(jq -r '.result.root_pane.pane_id' <<<"$created")"
-workspace_id="$(jq -r '.result.workspace.workspace_id' <<<"$created")"
+worktree_path="$(worktree_dir "$slug")"
+[ ! -e "$worktree_path" ] || die "$worktree_path already exists"
+mkdir -p "$(dirname "$worktree_path")"
+git -C "$root" worktree add --quiet -b "$branch" "$worktree_path" "$base_ref"
 
 # Keep the brief with the worktree: the worker reads it from there, and
 # list-tasks.sh shows each task's goal after the orchestrator's context is gone.
@@ -87,8 +87,6 @@ claude_args=(--dangerously-skip-permissions
     --settings '{"env":{"ORCHESTRATOR_WORKER":"1"}}')
 [ -z "$model" ] || claude_args+=(--model "$model")
 [ -z "$effort" ] || claude_args+=(--effort "$effort")
-herdr agent start "$agent_name" --kind claude --pane "$worker_pane" \
-    --timeout 60000 -- "${claude_args[@]}" >/dev/null
 
 setup="$(conf setup '')"
 rules="$(config_rules)"
@@ -105,8 +103,7 @@ rules_block=""
 [ -z "$rules" ] || rules_block=$'\n'"Project rules for workers:"$'\n'"$rules"$'\n'
 
 targets="$(merge_targets "$branch" | paste -sd ' ')"
-# The brief and the worker rules go in as file paths, not pasted text:
-# `herdr agent prompt` types into the pane, and a short prompt types reliably.
+# The brief and the worker rules go in as file paths, keeping the prompt short.
 brief="$(brief_file "$worktree_path")"
 worker_rules="$(realpath "$WORKER_SKILL")"
 
@@ -122,12 +119,35 @@ ${env_line}${setup_line}- Other worktrees may be running at the same time. Pick 
   server you start, and leave shared services running.
 ${rules_block}"
 
-herdr agent prompt "$agent_name" "$prompt" >/dev/null
+# A terminal labelled with a space and tab id Herdr doesn't know yet shows up
+# as a new space in the sidebar. --no-parent keeps the worker alive when this
+# session ends. The prompt goes in as claude's first message.
+new_id() { echo "$1$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')"; }
+space_id="$(new_id sp)"
+started="$(hc run --bg --json --no-parent --keep --name "$agent_name" \
+    --cwd "$worktree_path" --label "herdr.space=$space_id" \
+    --label "herdr.tab=$(new_id tb)" --label "orchestrator.branch=$branch" \
+    -- claude "${claude_args[@]}" "$prompt")"
+terminal="$(jq -r '.address' <<<"$started")"
+# A new worktree is a folder Claude hasn't seen, so it asks whether to trust
+# it. This script made it from the repo the user already works in: say yes.
+# ponytail: matches the dialog's text; update it if Claude rewords the prompt
+for _ in $(seq 30); do
+    if hc read "$terminal" 2>/dev/null | grep -q 'Yes, I trust this folder'; then
+        hc keys "$terminal" down enter >/dev/null
+        break
+    fi
+    # Claude reports a status once it's past any dialog.
+    [ "$(hc get "$terminal" 2>/dev/null | jq -r '.status.state // empty')" = "" ] || break
+    sleep 1
+done
+# Name the space after the task. Needs the window open; harmless if it isn't.
+herdr-app do space.rename --id "$space_id" --name "$slug" >/dev/null 2>&1 || true
 
 jq -n --arg type "$type" --arg branch "$branch" --arg base "$base_ref" \
-    --arg path "$worktree_path" --arg workspace "$workspace_id" \
-    --arg pane "$worker_pane" --arg agent "$agent_name" \
+    --arg path "$worktree_path" --arg space "$space_id" \
+    --arg terminal "$terminal" --arg agent "$agent_name" \
     --arg model "${model:-default}" --arg effort "${effort:-default}" \
     '{type: $type, branch: $branch, base: $base, worktree: $path,
-      workspace: $workspace, pane: $pane, agent: $agent, model: $model,
+      space: $space, terminal: $terminal, agent: $agent, model: $model,
       effort: $effort}'

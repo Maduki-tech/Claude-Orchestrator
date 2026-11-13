@@ -7,8 +7,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 root="$(repo_root)"
-agents="$(herdr agent list 2>/dev/null |
-    jq -r '.result.agents[] | "\(.cwd)\t\(.name // .pane_id)"' || true)"
+agents="$(live_terminals)"
 
 inbox="$(inbox_dir)/inbox"
 

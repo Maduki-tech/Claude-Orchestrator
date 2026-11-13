@@ -125,3 +125,16 @@ brief_file() {
 inbox_dir() {
     echo "$(git rev-parse --path-format=absolute --git-common-dir)/orchestrator"
 }
+
+# worktree_dir <slug>: where spawn-task.sh puts a task's worktree, the same
+# place Herdr's own worktree command used.
+worktree_dir() {
+    echo "$HOME/.herdr/worktrees/$(basename "$(repo_root)")/$1"
+}
+
+# live_terminals: "<cwd>\t<address>" for every live Herdr terminal.
+# A worker's terminal starts in its worktree, so the cwd finds it.
+live_terminals() {
+    hc ls --json 2>/dev/null |
+        jq -r '.terminals[] | "\(.cwd)\t\(.address)"' || true
+}

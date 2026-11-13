@@ -3,8 +3,8 @@
 Workers normally merge their own pull requests after the user's "Ship", and
 you run `finish-task.sh <branch>` on their Done report. This file covers
 everything else. `finish-task.sh` first fetches and fast-forwards each base
-branch where it's checked out, then removes the task's worktree, its Herdr
-workspace, and its branch once the work has landed.
+branch where it's checked out, then removes the task's worktree, its worker
+terminal (closing its Herdr space), and its branch once the work has landed.
 
 - **A repo with no forge remote:** the worker reports Done with an unmerged
   branch. Run `finish-task.sh <branch> --merge`. It merges with `--no-ff`

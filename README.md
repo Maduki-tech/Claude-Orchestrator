@@ -9,8 +9,9 @@ Herdr git worktree, so your main session stays free.
 
 ## Requirements
 
-`git`, `jq`, `herdr`, `gh` (for repos with a remote), `inotifywait` (from
-inotify-tools; optional, the inbox watcher polls without it), and Claude Code.
+`git`, `jq`, the Herdr desktop app (`hc` and `herdr-app`), `gh` (for repos with a remote), `inotifywait` (from
+inotify-tools; optional, the inbox watcher polls without it), `notify-send`
+(optional, for report notifications), and Claude Code.
 
 ## Install
 
